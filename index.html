@@ -37,7 +37,7 @@
             position: absolute;
             top: 15px;
             left: 15px;
-            width: 260px;
+            width: 270px; /* Ancho ajustado para acomodar 8 candidatos */
             background: rgba(255,255,255,0.98);
             border-radius: 8px; 
             box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
@@ -59,7 +59,7 @@
             -webkit-transform: translateX(-300px);
         }
 
-        /* Estilos internos (títulos, descripciones, etc.) */
+        /* Estilos internos */
         #resumenContainer h3 {
             font-weight: 700;
             margin: 0 0 8px 0; 
@@ -95,8 +95,8 @@
             -webkit-transition: -webkit-transform 0.3s ease-out, background-color 0.3s ease;
             
             /* Posición por defecto (al borde del panel visible) */
-            transform: translateX(260px); 
-            -webkit-transform: translateX(260px);
+            transform: translateX(270px); /* Ajustado a 270px de width del contenedor */
+            -webkit-transform: translateX(270px);
             border-radius: 0 8px 8px 0;
         }
         
@@ -113,53 +113,12 @@
         }
 
         /* -------------------------------------- */
-        /* RESPONSIVE: AJUSTES PARA CELULAR       */
-        /* -------------------------------------- */
-        @media (max-width: 768px) {
-            /* El panel ocupa toda la altura y se oculta totalmente a la izquierda */
-            #resumenContainer {
-                left: 0;
-                top: 0;
-                border-radius: 0;
-                width: 290px; 
-                max-height: 100vh;
-                /* Compatibilidad con Safari/Webkit */
-                transform: translateX(-290px); 
-                -webkit-transform: translateX(-290px);
-                box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-            }
-            
-            /* Estado visible en móvil */
-            #resumenContainer:not(.oculto) {
-                transform: translateX(0);
-                -webkit-transform: translateX(0);
-            }
-            
-            /* El botón de toggle en móvil, siempre al borde */
-            #toggleResumen {
-                top: 80px; 
-                left: 0;
-                /* Compatibilidad con Safari/Webkit */
-                transform: translateX(-38px); 
-                -webkit-transform: translateX(-38px);
-                border-radius: 0 8px 8px 0;
-            }
-            
-            /* Cuando el panel está visible, el botón se mueve a la derecha para actuar como cierre */
-            #toggleResumen:not(.oculto-mode) {
-                /* Compatibilidad con Safari/Webkit */
-                transform: translateX(290px);
-                -webkit-transform: translateX(290px);
-                border-radius: 8px 0 0 8px; 
-            }
-        }
-        
-        /* -------------------------------------- */
-        /* Estilos Barras y Controles */
+        /* Barras de Partido (AJUSTE CRÍTICO)     */
         /* -------------------------------------- */
         .barra-partido {
             display: grid;
-            grid-template-columns: 1fr auto 50px; 
+            /* Columna 1: Nombre (1fr), Columna 2: Votos/Porcentaje (80px), Columna 3: Barra Progreso (1fr) */
+            grid-template-columns: 1fr 80px 1fr; 
             align-items: center;
             margin-bottom: 8px; 
             padding: 6px 0; 
@@ -182,32 +141,42 @@
 
         .barra-votos-porcentaje {
             text-align: right;
-            padding-right: 10px; 
+            line-height: 1.2;
+            padding-right: 5px; 
         }
 
         .barra-votos {
+            display: block;
             font-weight: 700;
+            color: #1a1a1a;
+            font-size: 13px; 
         }
 
         .barra-porcentaje {
-            font-size: 11px; 
+            display: block;
+            font-weight: 600;
             color: #666;
+            font-size: 11px; 
         }
 
-        .barra-progreso-wrap {
+            .barra-progreso-wrap {
             height: 10px; 
             border-radius: 5px;
-            background: #e9ecef;
-            overflow: hidden;
+            background: #e9ecef; /* Fondo base (gris) */
             position: relative;
+            margin-left: 5px; 
+            /* ⚠️ CORRECCIÓN: Quitamos overflow: hidden para evitar conflictos de renderizado en algunos navegadores */
         }
 
         .barra-progreso-fill {
             height: 100%;
             border-radius: 5px;
+            /* ⚠️ CORRECCIÓN: Quitamos box-shadow para evitar que oculte el color */
             transition: width 0.7s ease-out;
+            /* El color de fondo se aplica aquí mediante JavaScript (style="background-color:...") */
         }
-
+        
+        /* ... (Resto de estilos de botones y selectores) ... */
         #resumenButtons {
             display: flex;
             flex-wrap: wrap;
@@ -254,6 +223,41 @@
             max-width: 280px;
             border: 1px solid #ddd;
             opacity: 0.98;
+        }
+
+        /* -------------------------------------- */
+        /* RESPONSIVE: AJUSTES PARA CELULAR       */
+        /* -------------------------------------- */
+        @media (max-width: 768px) {
+            #resumenContainer {
+                left: 0;
+                top: 0;
+                border-radius: 0;
+                width: 290px; 
+                max-height: 100vh;
+                transform: translateX(-290px); 
+                -webkit-transform: translateX(-290px);
+                box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            }
+            
+            #resumenContainer:not(.oculto) {
+                transform: translateX(0);
+                -webkit-transform: translateX(0);
+            }
+            
+            #toggleResumen {
+                top: 80px; 
+                left: 0;
+                transform: translateX(-38px); 
+                -webkit-transform: translateX(-38px);
+                border-radius: 0 8px 8px 0;
+            }
+            
+            #toggleResumen:not(.oculto-mode) {
+                transform: translateX(290px);
+                -webkit-transform: translateX(290px);
+                border-radius: 8px 0 0 8px; 
+            }
         }
     </style> 
 </head> 

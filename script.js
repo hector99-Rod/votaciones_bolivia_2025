@@ -57,7 +57,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 
 // ====================================================================
-// FUNCIONES DE UTILIDAD (Omitidas para Brevedad, Asumidas Correctas)
+// FUNCIONES DE UTILIDAD Y CÁLCULO
 // ====================================================================
 
 function getColor(ganador) {
@@ -68,6 +68,7 @@ function getColor(ganador) {
 function calcularResultados(props, esNacional = false) {
     let votosTotales = 0;
     
+    // Si es cálculo nacional, el total general ya está precalculado
     if (!esNacional) {
          votosTotales = candidatosActuales.reduce((sum, c) => sum + (props[c.clave] || 0), 0);
     } else {
@@ -76,6 +77,7 @@ function calcularResultados(props, esNacional = false) {
 
     const resultados = candidatosActuales.map(c => {
         const votos = esNacional ? (props.totalVotos[c.clave] || 0) : (props[c.clave] || 0);
+        // Aseguramos que el porcentaje sea 0 si no hay votos totales para evitar NaN/Infinity
         const porcentaje = votosTotales > 0 ? (votos / votosTotales) * 100 : 0;
             
         return {
@@ -87,8 +89,6 @@ function calcularResultados(props, esNacional = false) {
 
     return resultados;
 }
-
-// ... (cargarOpcionesDepartamentos, mostrarDatos, onEachFeatureHandler) ...
 
 function cargarDatos(url) { 
     fetch(url) 
@@ -158,6 +158,7 @@ function onEachFeatureHandler(feature, layer) {
     const resultados = calcularResultados(props, false);
 
     const barrasSVG = resultados.map((r, i) => {
+        // Lógica de renderizado SVG para el tooltip (permanece sin cambios)
         const y = i * 30;
         const barWidth = Math.min(r.porcentaje * 1.8, 140); 
         const imgUrl = `img/${r.clave}.png`;
@@ -168,11 +169,14 @@ function onEachFeatureHandler(feature, layer) {
                 <image href="${imgUrl}" x="0" y="0" width="20" height="20" clip-path="circle(10px at 10px 10px)" /> 
                 
                 <text x="25" y="14" font-size="11" fill="#222" font-family="Nunito, sans-serif" font-weight="600">${r.nombre}</text> 
+
                 <text x="120" y="7" font-size="9" fill="#000" fill-opacity="0.6" font-family="Nunito, sans-serif"> 
                     ${r.porcentaje.toFixed(1)}% 
                 </text> 
+
                 <rect x="120" y="10" width="140" height="10" fill="#e9ecef" rx="3" /> 
                 <rect x="120" y="10" width="${barWidth}" height="10" fill="${r.color}" rx="3" /> 
+
                 <text x="275" y="18" font-size="10" fill="#222" font-family="Nunito, sans-serif" text-anchor="end" font-weight="700"> 
                     ${r.votos.toLocaleString('es-ES')} 
                 </text> 
@@ -243,12 +247,12 @@ function actualizarResumen(features) {
         </div> 
     `).join("");
 
-    // 4. Actualizar título y descripción con formato de dos párrafos y enlace
-    resumenTitulo.textContent = `Resumen Nacional - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
+    // 4. Actualizar título y descripción con enlace
+    resumenTitulo.textContent = `Elecciones Bolivia - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
     
     resumenDesc.innerHTML = `
         <span style="display: block; margin-bottom: 5px;">
-            Resultados totales por partido, ordenados de mayor a menor porcentaje.
+            Elecciones presidenciales Bolivia 2025. Los datos de segunda vuelta fueron simulados según estadística bayesiana, no son datos oficiales.
         </span>
         <span style="display: block; font-weight: 600;">
             Total General: <strong>${totalGeneral.toLocaleString('es-ES')}</strong>.
@@ -285,13 +289,11 @@ function toggleResumenPanel() {
 
 
 // ====================================================================
-// MANEJO DE EVENTOS
+// MANEJO DE EVENTOS Y ARRANQUE
 // ====================================================================
 
-// Evento de Toggle
 toggleResumenBtn.addEventListener('click', toggleResumenPanel);
 
-// Evento: Cambio en el filtro de departamento
 departamentoFiltro.addEventListener('change', () => {
     const val = departamentoFiltro.value;
     
@@ -316,13 +318,11 @@ departamentoFiltro.addEventListener('change', () => {
     aplicarFiltro(val);
 });
 
-// Evento: Botón "Mostrar Todos"
 btnFiltro.addEventListener('click', () => {
     departamentoFiltro.value = 'todos'; 
     departamentoFiltro.dispatchEvent(new Event('change')); 
 });
 
-// Evento: Botón "Segunda Vuelta" (alterna el estado y recarga el GeoJSON)
 btnSegundaVuelta.addEventListener('click', () => { 
     let nuevaURL;
     
@@ -344,23 +344,19 @@ btnSegundaVuelta.addEventListener('click', () => {
 }); 
 
 
-// ====================================================================
-// ARRANQUE DE LA APLICACIÓN
-// ====================================================================
-
 document.addEventListener('DOMContentLoaded', () => {
-    // Configuración inicial de visibilidad del panel y botón
+    // Configuración inicial para móvil/escritorio
     if (window.innerWidth <= 768) {
-        // En móvil, oculta el panel al inicio y ajusta el botón
+        // Móvil: Oculta el panel e inicializa el botón como "Mostrar"
         resumenContainer.classList.add('oculto');
         toggleResumenBtn.classList.add('oculto-mode');
-        toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-right'; // Icono de abrir
+        toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-right'; 
         toggleResumenBtn.setAttribute('aria-label', 'Mostrar Resumen');
     } else {
-        // En escritorio, muestra el panel y el botón toma el modo "cerrar"
+        // Escritorio: Muestra el panel e inicializa el botón como "Cerrar"
         resumenContainer.classList.remove('oculto');
         toggleResumenBtn.classList.remove('oculto-mode');
-        toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-left'; // Icono de cerrar
+        toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-left'; 
         toggleResumenBtn.setAttribute('aria-label', 'Ocultar Resumen');
     }
     
