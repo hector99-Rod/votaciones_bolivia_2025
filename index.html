@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" /> 
 
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" /> 
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
 
     <style> 
         /* -------------------------------------- */
@@ -28,213 +31,214 @@
         }
 
         /* -------------------------------------- */
-        /* Resumen Flotante (Control) - COMPRIMIDO */
+        /* Resumen Flotante (Control)             */
         /* -------------------------------------- */
         #resumenContainer {
             position: absolute;
             top: 15px;
             left: 15px;
-            width: 260px; /* Ancho más pequeño */
+            width: 260px;
             background: rgba(255,255,255,0.98);
             border-radius: 8px; 
             box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
-            padding: 15px; /* Menos espaciado interno */
-            font-size: 13px; /* Fuente general más pequeña */
+            padding: 15px; 
+            font-size: 13px; 
             color: #1a1a1a;
             z-index: 1100;
             max-height: 90vh; 
             overflow-y: auto;
-            transition: box-shadow 0.3s ease;
+            transition: transform 0.3s ease-out; 
+            /* En escritorio, no se mueve (transform: translateX(0) por defecto) */
+        }
+        
+        /* Estado Oculto (para JS) */
+        #resumenContainer.oculto {
+            transform: translateX(-300px); 
         }
 
-        #resumenContainer:hover {
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
-
+        /* Estilos internos (títulos, descripciones, etc.) */
         #resumenContainer h3 {
             font-weight: 700;
-            margin: 0 0 8px 0; /* Margen inferior más pequeño */
-            font-size: 16px; /* Título más pequeño */
-            color: #333;
+            margin: 0 0 8px 0; 
+            font-size: 16px; 
             border-bottom: 1px solid #e0e0e0; 
             padding-bottom: 6px; 
         }
 
         #resumenContainer p {
-            margin-bottom: 12px; /* Margen inferior más pequeño */
-            font-size: 12px; /* Fuente descriptiva más pequeña */
-            color: #555;
+            margin-bottom: 12px;
+            font-size: 12px;
             line-height: 1.4;
         }
 
         /* -------------------------------------- */
-        /* Barras de Partido (Ajuste para compresión) */
+        /* Botón de Toggle (SIEMPRE VISIBLE)      */
+        /* -------------------------------------- */
+        #toggleResumen {
+            position: absolute;
+            top: 15px;
+            left: 15px; 
+            z-index: 1101; 
+            padding: 8px 10px;
+            border: none;
+            background-color: #3b82f6; 
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease-out, background-color 0.3s ease;
+            
+            /* Posición por defecto (al borde del panel visible) */
+            transform: translateX(260px); 
+            border-radius: 0 8px 8px 0;
+        }
+        
+        #toggleResumen.oculto-mode {
+            /* Cuando el panel está oculto, el botón se queda en el lado izquierdo */
+            transform: translateX(0);
+            border-radius: 0 8px 8px 0;
+            padding: 8px 12px; /* Un poco más de espacio cuando está solo */
+        }
+        
+        #toggleResumen:hover {
+            background-color: #2563eb;
+        }
+
+        /* -------------------------------------- */
+        /* RESPONSIVE: AJUSTES PARA CELULAR       */
+        /* -------------------------------------- */
+        @media (max-width: 768px) {
+            /* El panel ocupa toda la altura y se oculta totalmente a la izquierda */
+            #resumenContainer {
+                left: 0;
+                top: 0;
+                border-radius: 0;
+                width: 290px; /* Un poco más ancho para ocupar mejor la pantalla */
+                max-height: 100vh;
+                transform: translateX(-290px); 
+                box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            }
+            
+            /* Estado visible en móvil */
+            #resumenContainer:not(.oculto) {
+                transform: translateX(0);
+            }
+            
+            /* El botón de toggle en móvil, siempre al borde */
+            #toggleResumen {
+                top: 80px; /* Lo bajamos un poco para el toque con el dedo */
+                left: 0;
+                transform: translateX(-38px); /* Escondemos la mayor parte del botón, dejando solo el borde */
+                border-radius: 0 8px 8px 0;
+            }
+            
+            /* Cuando el panel está visible, el botón se mueve a la derecha para actuar como cierre */
+            #toggleResumen:not(.oculto-mode) {
+                transform: translateX(290px);
+                border-radius: 8px 0 0 8px; /* Borde izquierdo curvado */
+            }
+        }
+        
+        /* -------------------------------------- */
+        /* Estilos Barras y Controles (Funcionales) */
         /* -------------------------------------- */
         .barra-partido {
-            /* Columnas: Nombre/Logo, Votos/%, Barra de Progreso */
             display: grid;
             grid-template-columns: 1fr auto 50px; 
             align-items: center;
-            margin-bottom: 8px; /* Menos espacio entre barras */
-            padding: 6px 0; /* Menos padding vertical */
+            margin-bottom: 8px; 
+            padding: 6px 0; 
             border-bottom: 1px solid #f7f7f7;
         }
         
-        /* Contenedor del nombre y el logo */
         .barra-nombre-container {
             display: flex;
             align-items: center;
-            gap: 8px; /* Menos espacio entre logo y nombre */
+            gap: 8px; 
             min-width: 100px;
         }
 
-        .barra-partido:last-child {
-            border-bottom: none;
-        }
-
         .barra-partido img {
-            width: 28px; /* Icono más pequeño */
+            width: 28px; 
             height: 28px;
             border-radius: 50%;
-            object-fit: cover;
-            border: 1px solid #ccc; /* Borde más fino */
-            flex-shrink: 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #ccc; 
         }
 
-        .barra-nombre {
-            font-weight: 600;
-            color: #333;
-            font-size: 13px; /* Fuente más pequeña */
-            line-height: 1.2;
-        }
-        
         .barra-votos-porcentaje {
             text-align: right;
-            line-height: 1.2;
-            padding-right: 10px; /* Menos padding */
+            padding-right: 10px; 
         }
 
         .barra-votos {
-            display: block;
             font-weight: 700;
-            color: #1a1a1a;
-            font-size: 13px; /* Fuente más pequeña */
         }
 
         .barra-porcentaje {
-            display: block;
-            font-weight: 600;
+            font-size: 11px; 
             color: #666;
-            font-size: 11px; /* Fuente más pequeña */
         }
 
         .barra-progreso-wrap {
-            height: 10px; /* Barra de progreso más delgada */
+            height: 10px; 
             border-radius: 5px;
             background: #e9ecef;
             overflow: hidden;
             position: relative;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .barra-progreso-fill {
             height: 100%;
             border-radius: 5px;
-            transition: width 0.7s ease-out, background-color 0.7s ease;
-            box-shadow: inset 0 -1px 2px rgba(0,0,0,0.2);
+            transition: width 0.7s ease-out;
         }
 
-        /* -------------------------------------- */
-        /* Controles y Botones (Ajuste para compresión) */
-        /* -------------------------------------- */
         #resumenButtons {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px; /* Menos espacio entre botones */
-            margin-top: 10px; /* Margen superior más pequeño */
+            gap: 8px; 
+            margin-top: 10px; 
             border-top: 1px solid #e0e0e0;
             padding-top: 10px;
         }
 
         #departamentoFiltro {
             flex: 1 1 100%;
-            padding: 6px 10px; /* Menos padding */
+            padding: 6px 10px; 
             border-radius: 6px;
             border: 1px solid #ccc;
-            font-size: 13px; /* Fuente más pequeña */
-            background-color: #fff;
+            font-size: 13px; 
             font-family: 'Nunito', sans-serif;
             appearance: none;
-            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%20viewBox%3D%220%200%20292.4%20292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%20173.5c-4%204-10.3%204-14.3%200l-123%20-123c-4-4-10.3-4-14.3%200l-123%20123c-4%204-10.3%204-14.3%200s-4-10.3%200-14.3l123-123c8-8%2020.6-8%2028.6%200l123%20123c4%204%204%2010.3%200%2014.3z%22%2F%3E%3C%2Fsvg%3E');
-            background-repeat: no-repeat;
-            background-position: right 10px top 50%;
-            background-size: 12px;
-            cursor: pointer;
-        }
-        
-        #departamentoFiltro:focus {
-             border-color: #3b82f6;
-             outline: none;
         }
 
         button {
             flex: 1 1 45%;
-            padding: 6px 10px; /* Menos padding */
+            padding: 6px 10px; 
             border-radius: 6px;
             border: none;
             background-color: #3b82f6; 
             color: white;
             font-weight: 700;
             cursor: pointer;
-            font-size: 13px; /* Fuente más pequeña */
-            font-family: 'Nunito', sans-serif;
-            transition: background-color 0.3s ease, transform 0.1s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        button:hover {
-            background-color: #2563eb;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-        
-        button:active {
-            transform: scale(0.98);
+            font-size: 13px; 
         }
         
         #btnSegundaVuelta {
             background-color: #ef4444; 
         }
-        
-        #btnSegundaVuelta:hover {
-            background-color: #dc2626;
-        }
 
-        /* -------------------------------------- */
-        /* Tooltip Personalizado                  */
-        /* -------------------------------------- */
         .leaflet-tooltip.custom-tooltip {
             background: white;
             border-radius: 6px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            padding: 8px 12px; /* Menos padding */
+            padding: 8px 12px; 
             font-family: 'Nunito', sans-serif;
-            font-size: 12px; /* Fuente más pequeña */
+            font-size: 12px; 
             pointer-events: none;
             max-width: 280px;
             border: 1px solid #ddd;
             opacity: 0.98;
-        }
-        
-        .leaflet-tooltip-pane .leaflet-tooltip-tip {
-             background: white;
-             border: none;
-             box-shadow: none;
-        }
-
-        svg {
-            display: block;
-            overflow: visible !important;
         }
     </style> 
 </head> 
@@ -242,9 +246,12 @@
 
     <div id="map"></div> 
 
+    <button id="toggleResumen" aria-label="Mostrar/Ocultar Resumen">
+        <i class="fas fa-chevron-left"></i> </button>
+
     <div id="resumenContainer"> 
         <h3>Resumen Nacional - Primera Vuelta</h3> 
-        <p>Votos totales por partido, ordenados de mayor a menor porcentaje de votos.</p> 
+        <p>Votos totales por partido. Total General: <strong>0</strong>.</p> 
 
         <div id="resumenBarras">
             </div> 

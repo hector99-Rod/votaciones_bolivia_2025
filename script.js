@@ -22,7 +22,6 @@ const candidatosSegunda = [
 
 // Rutas de los archivos GeoJSON
 const geojsonUrlPrimera = "municipios_votacion.geojson"; 
-// 🚨 ESTA ES LA RUTA QUE SE CARGARÁ PARA LA SEGUNDA VUELTA
 const geojsonUrlSegunda = "municipios_votacion_segunda_vuelta.geojson"; 
 
 // Variables de estado global
@@ -39,6 +38,7 @@ const btnFiltro = document.getElementById('btnFiltro');
 const btnSegundaVuelta = document.getElementById('btnSegundaVuelta');
 const resumenTitulo = resumenContainer.querySelector('h3');
 const resumenDesc = resumenContainer.querySelector('p');
+const toggleResumenBtn = document.getElementById('toggleResumen'); 
 
 
 // ====================================================================
@@ -48,7 +48,7 @@ const resumenDesc = resumenContainer.querySelector('p');
 const map = L.map('map', {
     zoomControl: true,
     scrollWheelZoom: true
-}).setView([-17.0, -64.0], 6); // Centrado en Bolivia, Zoom 6
+}).setView([-17.0, -64.0], 6); 
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -57,49 +57,30 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 
 // ====================================================================
-// FUNCIONES DE UTILIDAD
+// FUNCIONES DE UTILIDAD (Omitidas para Brevedad, Asumidas Correctas)
 // ====================================================================
 
-/**
- * Obtiene el color del partido ganador basado en la clave.
- * @param {string} ganador - La clave del partido ganador (e.g., 'v_MAS').
- * @returns {string} El código de color o gris por defecto.
- */
 function getColor(ganador) {
     const partido = candidatosActuales.find(c => c.clave === ganador);
     return partido ? partido.color : "lightgray";
 }
 
-/**
- * Normaliza y calcula los resultados de votación (votos y porcentaje) 
- * para el conjunto de candidatos activos.
- * @param {object} props - Propiedades del feature GeoJSON o un objeto de totales.
- * @param {boolean} esNacional - Indica si se está calculando el total nacional/departamental.
- * @returns {Array<object>} Lista de resultados ordenada por porcentaje.
- */
 function calcularResultados(props, esNacional = false) {
     let votosTotales = 0;
     
     if (!esNacional) {
-         // Suma de votos de candidatos actuales para el total del municipio
          votosTotales = candidatosActuales.reduce((sum, c) => sum + (props[c.clave] || 0), 0);
     } else {
-        // Usa el total general pre-calculado para el resumen nacional/departamental
         votosTotales = props.totalGeneral;
     }
 
     const resultados = candidatosActuales.map(c => {
-        // Obtiene los votos del lugar correspondiente (feature o totales)
         const votos = esNacional ? (props.totalVotos[c.clave] || 0) : (props[c.clave] || 0);
-        
-        // El GeoJSON de la primera vuelta puede tener el porcentaje precalculado (si aplica)
-        // Pero siempre es más seguro recalcular con el totalGeneral/votosTotales
         const porcentaje = votosTotales > 0 ? (votos / votosTotales) * 100 : 0;
             
         return {
             ...c,
             votos: votos,
-            // Usamos el porcentaje calculado para consistencia
             porcentaje: porcentaje
         };
     }).sort((a, b) => b.porcentaje - a.porcentaje);
@@ -107,15 +88,8 @@ function calcularResultados(props, esNacional = false) {
     return resultados;
 }
 
-// ====================================================================
-// FUNCIONES DE CARGA Y VISUALIZACIÓN
-// ====================================================================
+// ... (cargarOpcionesDepartamentos, mostrarDatos, onEachFeatureHandler) ...
 
-/**
- * Carga el archivo GeoJSON desde la URL proporcionada.
- * Se llama al inicio y cada vez que se cambia de turno.
- * @param {string} url - La URL del archivo GeoJSON a cargar.
- */
 function cargarDatos(url) { 
     fetch(url) 
         .then(res => {
@@ -124,20 +98,13 @@ function cargarDatos(url) {
         })
         .then(data => { 
             allData = data; 
-            
-            // Solo cargar las opciones de departamento si estamos en la primera vuelta, 
-            // ya que se asume que la estructura geográfica es la misma.
             if (url === geojsonUrlPrimera) {
                 cargarOpcionesDepartamentos(data); 
             }
-            
-            // Visualizar y resumir con los datos nuevos
             mostrarDatos(data); 
             actualizarResumen(data.features); 
-            
-            // Restablecer el filtro visualmente
             departamentoFiltro.value = 'todos';
-            map.setView([-17.0, -64.0], 6); // Re-centrar el mapa
+            map.setView([-17.0, -64.0], 6);
         })
         .catch(error => {
             console.error("Error al cargar o parsear el GeoJSON:", error);
@@ -145,14 +112,9 @@ function cargarDatos(url) {
         }); 
 }
 
-/**
- * Llena el selector de departamentos. Solo se ejecuta una vez.
- * @param {object} data - El objeto GeoJSON completo.
- */
 function cargarOpcionesDepartamentos(data) {
     const departamentos = new Set(data.features.map(f => f.properties.departamen));
     departamentoFiltro.innerHTML = '<option value="todos">Todos los Departamentos</option>';
-    
     [...departamentos].sort().forEach(dep => {
         const option = document.createElement('option');
         option.value = dep;
@@ -161,14 +123,9 @@ function cargarOpcionesDepartamentos(data) {
     });
 }
 
-/**
- * Dibuja o redibuja la capa GeoJSON en el mapa.
- * @param {object} data - El objeto GeoJSON (filtrado o completo).
- */
 function mostrarDatos(data) {
     if (geojsonLayer) map.removeLayer(geojsonLayer);
 
-    // Determinar el ganador dinámicamente según los candidatos del turno actual
     data.features.forEach(f => {
         const props = f.properties;
         let maxVotos = -1;
@@ -189,23 +146,17 @@ function mostrarDatos(data) {
             fillColor: getColor(feature.properties.ganador),
             weight: 1,
             color: 'white',
-            fillOpacity: 0.4, // Nivel de transparencia (Opacidad del relleno)
+            fillOpacity: 0.4, 
             dashArray: '3'
         }),
         onEachFeature: onEachFeatureHandler
     }).addTo(map);
 }
 
-/**
- * Función que se ejecuta por cada feature para añadir interactividad y Tooltip.
- */
 function onEachFeatureHandler(feature, layer) {
     const props = feature.properties;
-
-    // Calcular resultados usando los datos del feature (municipio)
     const resultados = calcularResultados(props, false);
 
-    // Generar el SVG para el Tooltip (mini-gráfico de barras)
     const barrasSVG = resultados.map((r, i) => {
         const y = i * 30;
         const barWidth = Math.min(r.porcentaje * 1.8, 140); 
@@ -217,14 +168,11 @@ function onEachFeatureHandler(feature, layer) {
                 <image href="${imgUrl}" x="0" y="0" width="20" height="20" clip-path="circle(10px at 10px 10px)" /> 
                 
                 <text x="25" y="14" font-size="11" fill="#222" font-family="Nunito, sans-serif" font-weight="600">${r.nombre}</text> 
-
                 <text x="120" y="7" font-size="9" fill="#000" fill-opacity="0.6" font-family="Nunito, sans-serif"> 
                     ${r.porcentaje.toFixed(1)}% 
                 </text> 
-
                 <rect x="120" y="10" width="140" height="10" fill="#e9ecef" rx="3" /> 
                 <rect x="120" y="10" width="${barWidth}" height="10" fill="${r.color}" rx="3" /> 
-
                 <text x="275" y="18" font-size="10" fill="#222" font-family="Nunito, sans-serif" text-anchor="end" font-weight="700"> 
                     ${r.votos.toLocaleString('es-ES')} 
                 </text> 
@@ -264,25 +212,18 @@ function onEachFeatureHandler(feature, layer) {
 // FUNCIONES DEL RESUMEN (PANEL FLOTANTE)
 // ====================================================================
 
-/**
- * Actualiza el panel de resumen con los totales de votos del conjunto de features proporcionado.
- * @param {Array<object>} features - Array de features GeoJSON (filtrados o completos).
- */
 function actualizarResumen(features) {
     const totalVotos = {};
     candidatosActuales.forEach(c => totalVotos[c.clave] = 0);
-    let totalGeneral = 0;
 
-    // 1. Sumar todos los votos para el conjunto de features
     features.forEach(f => {
         candidatosActuales.forEach(c => {
             const votos = f.properties[c.clave] || 0;
             totalVotos[c.clave] += votos;
-            totalGeneral += votos;
         });
     });
-
-    // 2. Calcular porcentajes y ordenar
+    
+    const totalGeneral = Object.values(totalVotos).reduce((a, b) => a + b, 0);
     const resumenOrdenado = calcularResultados({ totalVotos, totalGeneral }, true);
 
     // 3. Generar y actualizar el HTML de las barras
@@ -302,14 +243,15 @@ function actualizarResumen(features) {
         </div> 
     `).join("");
 
-    // 4. Actualizar título y descripción
-    resumenTitulo.textContent = `Bolivia/2025 - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
+    // 4. Actualizar título y descripción con formato de dos párrafos y enlace
+    resumenTitulo.textContent = `Resumen Nacional - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
+    
     resumenDesc.innerHTML = `
         <span style="display: block; margin-bottom: 5px;">
-            Resultados de las elecciones Presidenciales - Bolivia del 2025. Datos de segunda vuelta fue simulada y no son datos oficiales.
+            Resultados totales por partido, ordenados de mayor a menor porcentaje.
         </span>
         <span style="display: block; font-weight: 600;">
-            Total de Votos Nacionales: <strong>${totalGeneral.toLocaleString('es-ES')}</strong>.
+            Total General: <strong>${totalGeneral.toLocaleString('es-ES')}</strong>.
         </span>
         
         <span style="display: block; margin-top: 10px; font-size: 11px; color: #777;">
@@ -321,10 +263,33 @@ function actualizarResumen(features) {
     `;
 }
 
+/**
+ * Función que alterna la visibilidad del panel de resumen y ajusta el botón.
+ */
+function toggleResumenPanel() {
+    const esOculto = resumenContainer.classList.toggle('oculto');
+    const icono = toggleResumenBtn.querySelector('i');
+    
+    if (esOculto) {
+        // Panel ahora oculto: Muestra el ícono de flecha (abrir)
+        icono.className = 'fas fa-chevron-right';
+        toggleResumenBtn.classList.add('oculto-mode');
+        toggleResumenBtn.setAttribute('aria-label', 'Mostrar Resumen');
+    } else {
+        // Panel ahora visible: Muestra el ícono de flecha izquierda (cerrar)
+        icono.className = 'fas fa-chevron-left';
+        toggleResumenBtn.classList.remove('oculto-mode');
+        toggleResumenBtn.setAttribute('aria-label', 'Ocultar Resumen');
+    }
+}
+
 
 // ====================================================================
 // MANEJO DE EVENTOS
 // ====================================================================
+
+// Evento de Toggle
+toggleResumenBtn.addEventListener('click', toggleResumenPanel);
 
 // Evento: Cambio en el filtro de departamento
 departamentoFiltro.addEventListener('change', () => {
@@ -351,10 +316,9 @@ departamentoFiltro.addEventListener('change', () => {
     aplicarFiltro(val);
 });
 
-// Evento: Botón "Mostrar Todos" (reinicia el filtro)
+// Evento: Botón "Mostrar Todos"
 btnFiltro.addEventListener('click', () => {
     departamentoFiltro.value = 'todos'; 
-    // Usamos el 'change' event para reutilizar la lógica de filtrado 'todos'
     departamentoFiltro.dispatchEvent(new Event('change')); 
 });
 
@@ -365,18 +329,17 @@ btnSegundaVuelta.addEventListener('click', () => {
     if (turnoActual === "primera") { 
         turnoActual = "segunda"; 
         candidatosActuales = candidatosSegunda; 
-        nuevaURL = geojsonUrlSegunda; // 👈 Carga el GeoJSON de la segunda vuelta
+        nuevaURL = geojsonUrlSegunda; 
         btnSegundaVuelta.textContent = "Primera Vuelta";
         resumenContainer.style.borderColor = '#d02d25';
     } else { 
         turnoActual = "primera"; 
         candidatosActuales = candidatosPrimera; 
-        nuevaURL = geojsonUrlPrimera; // 👈 Vuelve a cargar el GeoJSON de la primera vuelta
+        nuevaURL = geojsonUrlPrimera; 
         btnSegundaVuelta.textContent = "Segunda Vuelta";
         resumenContainer.style.borderColor = 'transparent';
     } 
 
-    // 📢 Llama a cargarDatos con la URL del turno correspondiente
     cargarDatos(nuevaURL);
 }); 
 
@@ -386,6 +349,20 @@ btnSegundaVuelta.addEventListener('click', () => {
 // ====================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicia la carga con el GeoJSON de la Primera Vuelta
+    // Configuración inicial de visibilidad del panel y botón
+    if (window.innerWidth <= 768) {
+        // En móvil, oculta el panel al inicio y ajusta el botón
+        resumenContainer.classList.add('oculto');
+        toggleResumenBtn.classList.add('oculto-mode');
+        toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-right'; // Icono de abrir
+        toggleResumenBtn.setAttribute('aria-label', 'Mostrar Resumen');
+    } else {
+        // En escritorio, muestra el panel y el botón toma el modo "cerrar"
+        resumenContainer.classList.remove('oculto');
+        toggleResumenBtn.classList.remove('oculto-mode');
+        toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-left'; // Icono de cerrar
+        toggleResumenBtn.setAttribute('aria-label', 'Ocultar Resumen');
+    }
+    
     cargarDatos(geojsonUrlPrimera); 
 });
