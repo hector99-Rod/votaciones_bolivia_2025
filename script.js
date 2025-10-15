@@ -303,8 +303,22 @@ function actualizarResumen(features) {
     `).join("");
 
     // 4. Actualizar título y descripción
-    resumenTitulo.textContent = `Resumen Nacional - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
-    resumenDesc.innerHTML = `Votos totales por partido. Total General: <strong>${totalGeneral.toLocaleString('es-ES')}</strong>.`;
+    resumenTitulo.textContent = `Bolivia/2025 - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
+    resumenDesc.innerHTML = `
+        <span style="display: block; margin-bottom: 5px;">
+            Resultados de las elecciones Presidenciales - Bolivia del 2025. Datos de segunda vuelta fue simulada y no son datos oficiales.
+        </span>
+        <span style="display: block; font-weight: 600;">
+            Total de Votos Nacionales: <strong>${totalGeneral.toLocaleString('es-ES')}</strong>.
+        </span>
+        
+        <span style="display: block; margin-top: 10px; font-size: 11px; color: #777;">
+            Fuente de Datos: 
+            <a href="https://computo.oep.org.bo/" target="_blank" style="color: #3b82f6; text-decoration: none; font-weight: 700;">
+                Cómputo Oficial OEP
+            </a>
+        </span>
+    `;
 }
 
 
