@@ -5,19 +5,19 @@
 // Mapa de colores y nombres para los partidos de la Primera Vuelta
 const candidatosPrimera = [
     { clave: "v_POPULAR", nombre: "Alianza Popular", color: '#00f7ff' }, 
-    { clave: "v_ADN", nombre: "Lib. y Progreso", color: '#f3bad4' },     
-    { clave: "v_SUMATE", nombre: "SUMATE", color: '#a86af3' },           
-    { clave: "v_LIBRE", nombre: "LIBRE", color: '#d02d25' },             
-    { clave: "v_UCS", nombre: "Fuerza del Pueblo", color: '#212121' },   
-    { clave: "v_MAS", nombre: "MAS", color: '#4575b4' },                 
-    { clave: "v_UNIDAD", nombre: "UNIDAD", color: '#f3e442' },           
-    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' }                  
+    { clave: "v_ADN", nombre: "Lib. y Progreso", color: '#f3bad4' }, 	
+    { clave: "v_SUMATE", nombre: "SUMATE", color: '#a86af3' }, 	 	
+    { clave: "v_LIBRE", nombre: "LIBRE", color: '#d02d25' }, 	 	 
+    { clave: "v_UCS", nombre: "Fuerza del Pueblo", color: '#212121' }, 	
+    { clave: "v_MAS", nombre: "MAS", color: '#4575b4' }, 	 	 	 	
+    { clave: "v_UNIDAD", nombre: "UNIDAD", color: '#f3e442' }, 	 	
+    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' } 	 	 	 	
 ];
 
 // Mapa de colores y nombres para los partidos de la Segunda Vuelta
 const candidatosSegunda = [
     { clave: "v_LIBRE", nombre: "LIBRE", color: '#d02d25' }, 
-    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' }       
+    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' } 	 	
 ];
 
 // Rutas de los archivos GeoJSON
@@ -70,7 +70,7 @@ function calcularResultados(props, esNacional = false) {
     
     // Si es cálculo nacional, el total general ya está precalculado
     if (!esNacional) {
-         votosTotales = candidatosActuales.reduce((sum, c) => sum + (props[c.clave] || 0), 0);
+        votosTotales = candidatosActuales.reduce((sum, c) => sum + (props[c.clave] || 0), 0);
     } else {
         votosTotales = props.totalGeneral;
     }
@@ -102,7 +102,8 @@ function cargarDatos(url) {
                 cargarOpcionesDepartamentos(data); 
             }
             mostrarDatos(data); 
-            actualizarResumen(data.features); 
+            // 💡 CORRECCIÓN 2: Llamar actualizarResumen con TODOS los datos para incluir el exterior
+            actualizarResumen(allData.features); 
             departamentoFiltro.value = 'todos';
             map.setView([-17.0, -64.0], 6);
         })
@@ -116,39 +117,62 @@ function cargarOpcionesDepartamentos(data) {
     const departamentos = new Set(data.features.map(f => f.properties.departamen));
     departamentoFiltro.innerHTML = '<option value="todos">Todos los Departamentos</option>';
     [...departamentos].sort().forEach(dep => {
-        const option = document.createElement('option');
-        option.value = dep;
-        option.textContent = dep;
-        departamentoFiltro.appendChild(option);
+        // Excluir departamentos sin nombre si es que existen
+        if (dep && dep !== '') {
+            const option = document.createElement('option');
+            option.value = dep;
+            option.textContent = dep;
+            departamentoFiltro.appendChild(option);
+        }
     });
 }
 
 function mostrarDatos(data) {
     if (geojsonLayer) map.removeLayer(geojsonLayer);
 
-    data.features.forEach(f => {
+    // Filtrar features solo con geometría (municipios) para el mapa,
+    // ignorando features sin geometría (como el total del exterior)
+    const featuresMapeables = data.features.filter(f => f.geometry);
+
+
+    featuresMapeables.forEach(f => {
         const props = f.properties;
         let maxVotos = -1;
         let ganadorKey = null;
+        let votosTotales = 0; // Inicializar la suma de votos totales
 
         candidatosActuales.forEach(c => {
             const votos = props[c.clave] || 0;
+            votosTotales += votos; // Acumular los votos
+
             if (votos > maxVotos) {
                 maxVotos = votos;
                 ganadorKey = c.clave;
             }
         });
-        props.ganador = ganadorKey;
+
+        // 💡 CORRECCIÓN 1: Determinar el ganador. Si votosTotales es 0, usar clave especial para gris plomo.
+        props.ganador = (votosTotales === 0) ? "VOTOS_CERO" : ganadorKey;
     });
 
-    geojsonLayer = L.geoJSON(data, {
-        style: feature => ({
-            fillColor: getColor(feature.properties.ganador),
-            weight: 1,
-            color: 'white',
-            fillOpacity: 0.4, 
-            dashArray: '3'
-        }),
+    geojsonLayer = L.geoJSON({ ...data, features: featuresMapeables }, {
+        style: feature => {
+            let fillColor;
+            // 💡 CORRECCIÓN 1: Aplicación del Gris Plomo
+            if (feature.properties.ganador === "VOTOS_CERO") {
+                fillColor = '#808080'; // Gris Plomo
+            } else {
+                fillColor = getColor(feature.properties.ganador);
+            }
+
+            return {
+                fillColor: fillColor,
+                weight: 1,
+                color: 'white',
+                fillOpacity: 0.4, 
+                dashArray: '3'
+            };
+        },
         onEachFeature: onEachFeatureHandler
     }).addTo(map);
 }
@@ -220,7 +244,12 @@ function actualizarResumen(features) {
     const totalVotos = {};
     candidatosActuales.forEach(c => totalVotos[c.clave] = 0);
 
-    features.forEach(f => {
+    // 💡 CORRECCIÓN 2: Si el filtro es "Todos", usamos allData.features (que incluye el exterior).
+    // Si se aplicó un filtro, las features filtradas ya contienen los datos a sumar para la vista.
+    const dataForSummary = (departamentoFiltro.value === 'todos' && allData) ? allData.features : features;
+    
+    // Sumar votos de todas las features consideradas (municipios + exterior)
+    dataForSummary.forEach(f => {
         candidatosActuales.forEach(c => {
             const votos = f.properties[c.clave] || 0;
             totalVotos[c.clave] += votos;
@@ -247,8 +276,9 @@ function actualizarResumen(features) {
         </div> 
     `).join("");
 
-    // 4. Actualizar título y descripción con enlace
-    resumenTitulo.textContent = `Elecciones Bolivia - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
+    // 4. Actualizar título y descripción
+    const filtroNombre = departamentoFiltro.value === 'todos' ? 'Nacional' : departamentoFiltro.value;
+    resumenTitulo.textContent = `Resumen ${filtroNombre} - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
     
     resumenDesc.innerHTML = `
         <span style="display: block; margin-bottom: 5px;">
@@ -301,16 +331,24 @@ departamentoFiltro.addEventListener('change', () => {
         if (depValue === 'todos') {
             map.setView([-17.0, -64.0], 6);
             mostrarDatos(allData);
-            actualizarResumen(allData.features);
+            // Pasar todos los datos (incluyendo exterior)
+            actualizarResumen(allData.features); 
         } else {
-            const featuresFiltradas = allData.features.filter(f => f.properties.departamen === depValue);
-            const filtrado = { ...allData, features: featuresFiltradas };
+            // Filtrar solo las features con el departamento seleccionado y la feature del exterior si existe
+            // Nota: Aquí se asume que los datos del exterior tienen un valor de 'departamen' distinto al del filtro.
+            const featuresFiltradas = allData.features.filter(f => f.properties.departamen === depValue || f.geometry === null);
+
+            // Filtra las features visibles para el mapa (solo las que tienen geometría)
+            const featuresMapeables = featuresFiltradas.filter(f => f.geometry);
+            
+            const filtrado = { ...allData, features: featuresMapeables };
 
             const tempLayer = L.geoJSON(filtrado);
             if (tempLayer.getLayers().length > 0) {
                  map.fitBounds(tempLayer.getBounds(), { padding: [20, 20] });
             }
             mostrarDatos(filtrado);
+            // 💡 CORRECCIÓN 2: Pasar las features filtradas (que pueden incluir la feature del exterior sin geometría)
             actualizarResumen(featuresFiltradas);
         }
     };
