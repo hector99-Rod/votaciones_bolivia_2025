@@ -252,7 +252,7 @@ function actualizarResumen(features) {
     
     resumenDesc.innerHTML = `
         <span style="display: block; margin-bottom: 5px;">
-            Elecciones presidenciales Bolivia 2025. Los datos de segunda vuelta fueron simulados según estadística bayesiana, no son datos oficiales.
+            Elecciones presidenciales Bolivia 2025. Los datos de segunda vuelta fueron acutalizados a hrs 14:26 del 20/10/2025, cargados al 58,57%.
         </span>
         <span style="display: block; font-weight: 600;">
             Total General: <strong>${totalGeneral.toLocaleString('es-ES')}</strong>.
