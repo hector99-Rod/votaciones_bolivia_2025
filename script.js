@@ -1,36 +1,23 @@
-// ====================================================================
-// CONFIGURACIÓN DE DATOS Y VARIABLES GLOBALES
-// ====================================================================
-
-// Mapa de colores y nombres para los partidos de la Primera Vuelta
 const candidatosPrimera = [
-    { clave: "v_POPULAR", nombre: "Alianza Popular", color: '#00f7ff' }, 
-    { clave: "v_ADN", nombre: "Lib. y Progreso", color: '#f3bad4' }, 	
-    { clave: "v_SUMATE", nombre: "SUMATE", color: '#a86af3' }, 	 	
-    { clave: "v_LIBRE", nombre: "LIBRE", color: '#d02d25' }, 	 	 
-    { clave: "v_UCS", nombre: "Fuerza del Pueblo", color: '#212121' }, 	
-    { clave: "v_MAS", nombre: "MAS", color: '#4575b4' }, 	 	 	 	
-    { clave: "v_UNIDAD", nombre: "UNIDAD", color: '#f3e442' }, 	 	
-    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' } 	 	 	 	
-];
-
-// Mapa de colores y nombres para los partidos de la Segunda Vuelta
-const candidatosSegunda = [
+    { clave: "v_POPULAR", nombre: "Alianza Popular", color: '#00f7ff' },
+    { clave: "v_ADN", nombre: "Lib. y Progreso", color: '#f3bad4' }, 
+    { clave: "v_SUMATE", nombre: "SUMATE", color: '#a86af3' }, 
     { clave: "v_LIBRE", nombre: "LIBRE", color: '#d02d25' }, 
-    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' } 	 	
+    { clave: "v_UCS", nombre: "Fuerza del Pueblo", color: '#212121' },
+    { clave: "v_MAS", nombre: "MAS", color: '#4575b4' },
+    { clave: "v_UNIDAD", nombre: "UNIDAD", color: '#f3e442' }, 
+    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' }
 ];
-
-// Rutas de los archivos GeoJSON
-const geojsonUrlPrimera = "municipios_votacion.geojson"; 
-const geojsonUrlSegunda = "municipios_votacion_segunda_vuelta.geojson"; 
-
-// Variables de estado global
-let allData = null; 
-let geojsonLayer = null; 
-let turnoActual = "primera"; 
-let candidatosActuales = candidatosPrimera; 
-
-// Referencias a elementos del DOM
+const candidatosSegunda = [
+    { clave: "v_LIBRE", nombre: "LIBRE", color: '#d02d25' },
+    { clave: "v_PDC", nombre: "PDC", color: '#1a9850' }
+];
+const geojsonUrlPrimera = "municipios_votacion.geojson";
+const geojsonUrlSegunda = "municipios_votacion_segunda_vuelta.geojson";
+let allData = null;
+let geojsonLayer = null;
+let turnoActual = "primera";
+let candidatosActuales = candidatosPrimera;
 const departamentoFiltro = document.getElementById('departamentoFiltro');
 const resumenBarras = document.getElementById('resumenBarras');
 const resumenContainer = document.getElementById('resumenContainer');
@@ -38,27 +25,38 @@ const btnFiltro = document.getElementById('btnFiltro');
 const btnSegundaVuelta = document.getElementById('btnSegundaVuelta');
 const resumenTitulo = resumenContainer.querySelector('h3');
 const resumenDesc = resumenContainer.querySelector('p');
-const toggleResumenBtn = document.getElementById('toggleResumen'); 
-
-
-// ====================================================================
-// INICIALIZACIÓN DE LEAFLET
-// ====================================================================
+const toggleResumenBtn = document.getElementById('toggleResumen');
 
 const map = L.map('map', {
     zoomControl: true,
     scrollWheelZoom: true
-}).setView([-17.0, -64.0], 6); 
+}).setView([-17.0, -64.0], 6);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
+// **INICIO DE LA CORRECCIÓN FINAL Y DEFINITIVA**
+function closeAllTooltips() {
+    // 1. Cierra cualquier popup abierto (por si acaso)
+    map.closePopup(); 
+    
+    // 2. Itera sobre todas las capas y fuerza el cierre del tooltip si está abierto
+    if (geojsonLayer) {
+        geojsonLayer.eachLayer(function(layer) {
+            if (layer.isTooltipOpen()) {
+                layer.closeTooltip();
+            }
+        });
+    }
+}
 
-// ====================================================================
-// FUNCIONES DE UTILIDAD Y CÁLCULO
-// ====================================================================
+// Escuchar el inicio y el final del arrastre para limpiar los tooltips.
+// Esto garantiza que el tooltip no se quede pegado o se duplique.
+map.on('dragstart', closeAllTooltips);
+map.on('dragend', closeAllTooltips); 
+// **FIN DE LA CORRECCIÓN FINAL Y DEFINITIVA**
 
 function getColor(ganador) {
     const partido = candidatosActuales.find(c => c.clave === ganador);
@@ -68,16 +66,25 @@ function getColor(ganador) {
 function calcularResultados(props, esNacional = false) {
     let votosTotales = 0;
     
-    // Si es cálculo nacional, el total general ya está precalculado
     if (!esNacional) {
-        votosTotales = candidatosActuales.reduce((sum, c) => sum + (props[c.clave] || 0), 0);
+        votosTotales = candidatosActuales.reduce((sum, c) => {
+            const votos = parseFloat(props[c.clave]) || 0;
+            return sum + (isNaN(votos) ? 0 : votos);
+        }, 0);
     } else {
         votosTotales = props.totalGeneral;
     }
 
     const resultados = candidatosActuales.map(c => {
-        const votos = esNacional ? (props.totalVotos[c.clave] || 0) : (props[c.clave] || 0);
-        // Aseguramos que el porcentaje sea 0 si no hay votos totales para evitar NaN/Infinity
+        let votos;
+        if (esNacional) {
+            votos = props.totalVotos[c.clave] || 0;
+        } else {
+            votos = parseFloat(props[c.clave]) || 0;
+        }
+        
+        votos = isNaN(votos) ? 0 : votos;
+            
         const porcentaje = votosTotales > 0 ? (votos / votosTotales) * 100 : 0;
             
         return {
@@ -90,7 +97,7 @@ function calcularResultados(props, esNacional = false) {
     return resultados;
 }
 
-function cargarDatos(url) { 
+function cargarDatos(url, departamentoASeleccionar = 'todos') { 
     fetch(url) 
         .then(res => {
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}. Asegúrese que el archivo ${url} existe.`);
@@ -101,11 +108,9 @@ function cargarDatos(url) {
             if (url === geojsonUrlPrimera) {
                 cargarOpcionesDepartamentos(data); 
             }
-            mostrarDatos(data); 
-            // 💡 CORRECCIÓN 2: Llamar actualizarResumen con TODOS los datos para incluir el exterior
-            actualizarResumen(allData.features); 
-            departamentoFiltro.value = 'todos';
-            map.setView([-17.0, -64.0], 6);
+            
+            departamentoFiltro.value = departamentoASeleccionar;
+            aplicarFiltroYActualizar(departamentoASeleccionar);
         })
         .catch(error => {
             console.error("Error al cargar o parsear el GeoJSON:", error);
@@ -113,37 +118,38 @@ function cargarDatos(url) {
         }); 
 }
 
+const esDepartamentoValido = (dep) => 
+    dep && dep !== '' && dep !== 'None' && dep !== 'nan'; 
+
 function cargarOpcionesDepartamentos(data) {
-    const departamentos = new Set(data.features.map(f => f.properties.departamen));
+    const departamentos = new Set(data.features
+        .map(f => f.properties.departamen)
+        .filter(esDepartamentoValido) 
+    );
+    
     departamentoFiltro.innerHTML = '<option value="todos">Todos los Departamentos</option>';
     [...departamentos].sort().forEach(dep => {
-        // Excluir departamentos sin nombre si es que existen
-        if (dep && dep !== '') {
-            const option = document.createElement('option');
-            option.value = dep;
-            option.textContent = dep;
-            departamentoFiltro.appendChild(option);
-        }
+        const option = document.createElement('option');
+        option.value = dep;
+        option.textContent = dep;
+        departamentoFiltro.appendChild(option);
     });
 }
 
 function mostrarDatos(data) {
     if (geojsonLayer) map.removeLayer(geojsonLayer);
 
-    // Filtrar features solo con geometría (municipios) para el mapa,
-    // ignorando features sin geometría (como el total del exterior)
     const featuresMapeables = data.features.filter(f => f.geometry);
-
 
     featuresMapeables.forEach(f => {
         const props = f.properties;
         let maxVotos = -1;
         let ganadorKey = null;
-        let votosTotales = 0; // Inicializar la suma de votos totales
+        let votosTotales = 0; 
 
         candidatosActuales.forEach(c => {
-            const votos = props[c.clave] || 0;
-            votosTotales += votos; // Acumular los votos
+            const votos = parseFloat(props[c.clave]) || 0; 
+            votosTotales += (isNaN(votos) ? 0 : votos); 
 
             if (votos > maxVotos) {
                 maxVotos = votos;
@@ -151,16 +157,14 @@ function mostrarDatos(data) {
             }
         });
 
-        // 💡 CORRECCIÓN 1: Determinar el ganador. Si votosTotales es 0, usar clave especial para gris plomo.
         props.ganador = (votosTotales === 0) ? "VOTOS_CERO" : ganadorKey;
     });
 
     geojsonLayer = L.geoJSON({ ...data, features: featuresMapeables }, {
         style: feature => {
             let fillColor;
-            // 💡 CORRECCIÓN 1: Aplicación del Gris Plomo
             if (feature.properties.ganador === "VOTOS_CERO") {
-                fillColor = '#808080'; // Gris Plomo
+                fillColor = '#808080'; 
             } else {
                 fillColor = getColor(feature.properties.ganador);
             }
@@ -182,7 +186,6 @@ function onEachFeatureHandler(feature, layer) {
     const resultados = calcularResultados(props, false);
 
     const barrasSVG = resultados.map((r, i) => {
-        // Lógica de renderizado SVG para el tooltip (permanece sin cambios)
         const y = i * 30;
         const barWidth = Math.min(r.porcentaje * 1.8, 140); 
         const imgUrl = `img/${r.clave}.png`;
@@ -228,38 +231,24 @@ function onEachFeatureHandler(feature, layer) {
         opacity: 0.98,
         className: 'custom-tooltip'
     });
-
-    layer.on('click', e => {
-        e.originalEvent.preventDefault();
-        e.originalEvent.stopPropagation();
-    });
 }
-
-
-// ====================================================================
-// FUNCIONES DEL RESUMEN (PANEL FLOTANTE)
-// ====================================================================
 
 function actualizarResumen(features) {
     const totalVotos = {};
     candidatosActuales.forEach(c => totalVotos[c.clave] = 0);
 
-    // 💡 CORRECCIÓN 2: Si el filtro es "Todos", usamos allData.features (que incluye el exterior).
-    // Si se aplicó un filtro, las features filtradas ya contienen los datos a sumar para la vista.
-    const dataForSummary = (departamentoFiltro.value === 'todos' && allData) ? allData.features : features;
-    
-    // Sumar votos de todas las features consideradas (municipios + exterior)
-    dataForSummary.forEach(f => {
+    features.forEach(f => {
         candidatosActuales.forEach(c => {
-            const votos = f.properties[c.clave] || 0;
-            totalVotos[c.clave] += votos;
+            const votos = parseFloat(f.properties[c.clave]) || 0; 
+            if (!isNaN(votos)) { 
+                totalVotos[c.clave] += votos;
+            }
         });
     });
     
     const totalGeneral = Object.values(totalVotos).reduce((a, b) => a + b, 0);
     const resumenOrdenado = calcularResultados({ totalVotos, totalGeneral }, true);
 
-    // 3. Generar y actualizar el HTML de las barras
     resumenBarras.innerHTML = resumenOrdenado.map(c => ` 
         <div class="barra-partido"> 
             <div class="barra-nombre-container">
@@ -276,14 +265,20 @@ function actualizarResumen(features) {
         </div> 
     `).join("");
 
-    // 4. Actualizar título y descripción
     const filtroNombre = departamentoFiltro.value === 'todos' ? 'Nacional' : departamentoFiltro.value;
     resumenTitulo.textContent = `Votación ${filtroNombre} - ${turnoActual === "primera" ? "Primera Vuelta" : "Segunda Vuelta"}`;
     
     resumenDesc.innerHTML = `
         <span style="display: block; margin-bottom: 5px;">
-            Elecciones presidenciales Bolivia 2025. Los datos de segunda vuelta fueron computados al 100%.
+            Elecciones presidenciales Bolivia 2025.
         </span>
+        <span style="display: block; margin-bottom: 5px;">
+            El mapa revela una geografía electoral, reflejando una clara división regional en el voto.
+        </span>
+        <span style="display: block; margin-bottom: 5px;">
+
+        </span>
+
         <span style="display: block; font-weight: 600;">
             Total General: <strong>${totalGeneral.toLocaleString('es-ES')}</strong>.
         </span>
@@ -297,72 +292,69 @@ function actualizarResumen(features) {
     `;
 }
 
-/**
- * Función que alterna la visibilidad del panel de resumen y ajusta el botón.
- */
 function toggleResumenPanel() {
     const esOculto = resumenContainer.classList.toggle('oculto');
     const icono = toggleResumenBtn.querySelector('i');
     
     if (esOculto) {
-        // Panel ahora oculto: Muestra el ícono de flecha (abrir)
         icono.className = 'fas fa-chevron-right';
         toggleResumenBtn.classList.add('oculto-mode');
         toggleResumenBtn.setAttribute('aria-label', 'Mostrar Resumen');
     } else {
-        // Panel ahora visible: Muestra el ícono de flecha izquierda (cerrar)
         icono.className = 'fas fa-chevron-left';
         toggleResumenBtn.classList.remove('oculto-mode');
         toggleResumenBtn.setAttribute('aria-label', 'Ocultar Resumen');
     }
 }
 
+function aplicarFiltroYActualizar(depValue) {
+    if (!allData) return; 
 
-// ====================================================================
-// MANEJO DE EVENTOS Y ARRANQUE
-// ====================================================================
+    if (depValue === 'todos') {
+        map.setView([-17.0, -64.0], 6);
+        mostrarDatos(allData); 
+        actualizarResumen(allData.features);
+        
+        // 1. Vista Nacional: Botón 'Ir a Bolivia' (no hace nada ya que estás ahí, o es el punto de partida)
+        btnFiltro.textContent = 'Ir a Bolivia'; 
+    } else {
+        const featuresFiltradas = allData.features.filter(f => 
+            f.properties.departamen === depValue || 
+            (f.geometry === null && !esDepartamentoValido(f.properties.departamen))
+        );
+
+        const featuresMapeables = featuresFiltradas.filter(f => f.geometry && f.properties.departamen === depValue);
+        
+        const filtrado = { ...allData, features: featuresMapeables };
+
+        const tempLayer = L.geoJSON(filtrado);
+        if (tempLayer.getLayers().length > 0) {
+             map.fitBounds(tempLayer.getBounds(), { padding: [20, 20] });
+        }
+        
+        mostrarDatos(filtrado);
+        actualizarResumen(featuresFiltradas);
+        
+        // 2. Vista Departamental: Botón 'Mostrar Bolivia' para volver a la vista nacional
+        btnFiltro.textContent = 'Mostrar Bolivia'; 
+    }
+}
+
 
 toggleResumenBtn.addEventListener('click', toggleResumenPanel);
 
 departamentoFiltro.addEventListener('change', () => {
-    const val = departamentoFiltro.value;
-    
-    const aplicarFiltro = (depValue) => {
-        if (depValue === 'todos') {
-            map.setView([-17.0, -64.0], 6);
-            mostrarDatos(allData);
-            // Pasar todos los datos (incluyendo exterior)
-            actualizarResumen(allData.features); 
-        } else {
-            // Filtrar solo las features con el departamento seleccionado y la feature del exterior si existe
-            // Nota: Aquí se asume que los datos del exterior tienen un valor de 'departamen' distinto al del filtro.
-            const featuresFiltradas = allData.features.filter(f => f.properties.departamen === depValue || f.geometry === null);
-
-            // Filtra las features visibles para el mapa (solo las que tienen geometría)
-            const featuresMapeables = featuresFiltradas.filter(f => f.geometry);
-            
-            const filtrado = { ...allData, features: featuresMapeables };
-
-            const tempLayer = L.geoJSON(filtrado);
-            if (tempLayer.getLayers().length > 0) {
-                 map.fitBounds(tempLayer.getBounds(), { padding: [20, 20] });
-            }
-            mostrarDatos(filtrado);
-            // 💡 CORRECCIÓN 2: Pasar las features filtradas (que pueden incluir la feature del exterior sin geometría)
-            actualizarResumen(featuresFiltradas);
-        }
-    };
-    
-    aplicarFiltro(val);
+    aplicarFiltroYActualizar(departamentoFiltro.value);
 });
 
 btnFiltro.addEventListener('click', () => {
     departamentoFiltro.value = 'todos'; 
-    departamentoFiltro.dispatchEvent(new Event('change')); 
+    aplicarFiltroYActualizar('todos');
 });
 
 btnSegundaVuelta.addEventListener('click', () => { 
     let nuevaURL;
+    const filtroActual = departamentoFiltro.value; 
     
     if (turnoActual === "primera") { 
         turnoActual = "segunda"; 
@@ -378,20 +370,20 @@ btnSegundaVuelta.addEventListener('click', () => {
         resumenContainer.style.borderColor = 'transparent';
     } 
 
-    cargarDatos(nuevaURL);
+    cargarDatos(nuevaURL, filtroActual);
 }); 
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Configuración inicial para móvil/escritorio
+    // Inicializar el texto del botón al cargar (vista nacional)
+    btnFiltro.textContent = 'Ir a Bolivia'; 
+    
     if (window.innerWidth <= 768) {
-        // Móvil: Oculta el panel e inicializa el botón como "Mostrar"
         resumenContainer.classList.add('oculto');
         toggleResumenBtn.classList.add('oculto-mode');
         toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-right'; 
         toggleResumenBtn.setAttribute('aria-label', 'Mostrar Resumen');
     } else {
-        // Escritorio: Muestra el panel e inicializa el botón como "Cerrar"
         resumenContainer.classList.remove('oculto');
         toggleResumenBtn.classList.remove('oculto-mode');
         toggleResumenBtn.querySelector('i').className = 'fas fa-chevron-left'; 
